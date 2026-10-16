@@ -53,6 +53,7 @@ class LoginController extends Controller
 
         $user = $request->user();
         if (! in_array($user->role, ['owner', 'admin', 'order_manager'], true)) {
+            // @phpstan-ignore-line Laravel facade magic method
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -67,6 +68,7 @@ class LoginController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
+        // @phpstan-ignore-line Laravel facade magic method
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

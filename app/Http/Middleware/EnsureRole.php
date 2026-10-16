@@ -17,6 +17,7 @@ class EnsureRole
 
         if (! $user || ! $user->is_active) {
             if ($user && ! $user->is_active) {
+                // @phpstan-ignore-line Laravel facade magic method
                 auth()->logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();

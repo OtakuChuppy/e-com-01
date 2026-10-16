@@ -120,7 +120,7 @@ class CsvImportController extends Controller
                     if (! empty($record['category_slug'])) {
                         $categoryCacheKey = $record['category_slug'];
                         if (! isset($categoryCache[$categoryCacheKey])) {
-                            $categoryCache[$categoryCacheKey] = Category::where('slug', $categoryCacheKey)->first()->id ?? null;
+                            $categoryCache[$categoryCacheKey] = Category::where('slug', $categoryCacheKey)->first()?->id ?? null;
                         }
                         $categoryId = $categoryCache[$categoryCacheKey];
                     }
