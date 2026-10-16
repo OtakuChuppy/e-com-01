@@ -146,7 +146,7 @@ class AdminTest extends TestCase
         $this->assertCount(1, ProductVariant::where('sku', 'IMP-0002-M')->get());
     }
 
-    private function prepareCsvFile(string $csv): Illuminate\Http\Testing\File
+    private function prepareCsvFile(string $csv): File
     {
         return \Illuminate\Http\Testing\File::create($csv, 'products.csv', 'text/csv');
     }
