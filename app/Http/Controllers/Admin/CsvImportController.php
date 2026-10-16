@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -23,7 +24,7 @@ class CsvImportController extends Controller
         ]);
     }
 
-    public function downloadTemplate(): RedirectResponse
+    public function downloadTemplate(): Response
     {
         $filename = 'product-import-template.csv';
         $headers = [
