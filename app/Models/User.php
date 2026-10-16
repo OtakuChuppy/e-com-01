@@ -10,10 +10,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'role', 'phone', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
+    public const ROLES = ['owner', 'admin', 'order_manager'];
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
@@ -27,6 +29,37 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->role === 'owner';
+    }
+
+    public function canManageProducts(): bool
+    {
+        return in_array($this->role, ['owner', 'admin'], true);
+    }
+
+    public function canManageOrders(): bool
+    {
+        return in_array($this->role, ['owner', 'admin', 'order_manager'], true);
+    }
+
+    public function canManageInventory(): bool
+    {
+        return in_array($this->role, ['owner', 'admin'], true);
+    }
+
+    public function canManageUsers(): bool
+    {
+        return $this->role === 'owner';
+    }
+
+    public function canManageSettings(): bool
+    {
+        return in_array($this->role, ['owner', 'admin'], true);
     }
 }

@@ -41,13 +41,22 @@
 - [x] Persistent guest cart (session+cookie), server revalidation, BD checkout (name/phone/address/district), COD, delivery rules (Dhaka in/out configurable), unique order ref, anti-double-submit, lookup via phone+reference
 
 ### Stage 5 — Admin Panel
-- [ ] Dashboard counts, product CRUD + archive, order list/detail/transitions, inventory history, SEO/sitemap/robots, tracking settings (Pixel/GTM/GA4), roles/permissions, audit log, courier settings mock
+- [x] Dashboard counts (total/new/on-hold/confirmed/delivered/cancelled + 7/30-day sales + recent orders)
+- [x] Paginated order list (search/filter/15pp) + detail + valid-transition status updates with confirm + history + audit
+- [x] Product CRUD + publish/archive + delete-blocked-if-in-orders + search/filter + low-stock flags
+- [x] Inventory adjustments (transactional, reasoned, never negative) + movement history
+- [x] Settings (delivery charges, Pixel/GTM/GA4 validated IDs, robots mode) + courier mock (not connected)
+- [x] Users & roles (owner/admin/order_manager) + last-owner protection + audit log
+- [x] SEO: product/category meta fields, sitemap.xml (published only), robots.txt (staging/live), admin noindex
 
 ### Stage 6 — Auth & Security
-- [ ] Breeze-equivalent auth, CSRF, validation, hashing, rate-limit, secure uploads, policies, .env.example, prod hardening, docs/SECURITY.md
+- [x] Staff login/logout (session guard, bcrypt hashing, session regeneration), CSRF, validation, rate limiting (5/email+IP + throttle:20,1), secure sessions, role middleware on every admin route
+- [x] Password reset via broker (identical responses, log-mailer behavior documented); email verification deferred until SMTP configured
+- [x] File-upload endpoint not built yet (rules documented); .env.example placeholders only; prod hardening in DEPLOYMENT.md; docs/SECURITY.md complete
 
 ### Stage 7 — Testing & Quality
-- [ ] Feature tests (homepage, listing, pagination, detail, auth, RBAC, CRUD, cart/checkout, totals, delivery, stock, status, SEO, uploads, guest isolation), `npm run build`, UI checks
+- [x] 18 tests green (StorefrontTest 7 + AdminTest 9 + Example 2): homepage, listing, pagination, detail, auth, RBAC boundaries, CRUD guards, cart/checkout, totals, delivery, stock, status transitions, audit, SEO/robots, health secrecy, login throttle
+- [x] `npm run build` clean, `./vendor/bin/pint` clean, `composer audit` no advisories, live HTTP checks incl. /admin/login 200, /health ok, /sitemap.xml, guest /admin → login redirect
 
 ### Stage 8 — Deployment Prep
 - [ ] docs/DEPLOYMENT.md full, prod checklist, backup/restore, smoke tests
