@@ -73,8 +73,16 @@
 - No action needed from user. Non-blocking questions in docs/DECISIONS.md (brand name, MySQL choice, hosting).
 
 ## Test log (all actually run 2026-10-17)
-- `php artisan test` → 9 passed (7 StorefrontTest + 2 Example) (pass)
-- `npm run build` → built in 1.78s, 105KB JS / 51KB CSS (pass)
+- `php artisan test` → 18 passed (7 StorefrontTest + 9 AdminTest + 2 Example)
+- `npm run build` → built in 1.22s, 105KB JS / 51KB CSS (pass)
 - `./vendor/bin/pint` → formatted, clean (pass)
-- Live HTTP: `/` 200, `/products` 200, detail 200, `/cart` 200, `/track-order` 200, `/policies/shipping` 200, `/checkout` 500-empty-cart→redirect expected, add-to-cart→checkout 200 (pass)
+- Live HTTP: `/health` 200 (secrets-free), `/sitemap.xml` 200, `/robots.txt` 200, guest `/admin` → 302 login, `/admin/login` 200
 - `php artisan migrate:fresh --seed` → 20 demo products + 6 categories + variant example (pass)
+
+## Independent audit (Stages 5–6) — 2026-10-17
+- Full battery re-run (test + pint + build + composer audit + live HTTP + security probes). See `docs/AUDIT_NOTES.md`.
+- **Two runtime defects found and fixed** (both reproduced via probes, then fixed):
+  1. Empty-cart `/checkout` returned **500** instead of 302 redirect (`CheckoutController::index`).
+  2. `HealthController::show` ran `Artisan::call('migrate --pretend')` on every probe (dead code / no-op); removed.
+- Pre-existing cleanup not part of this commit: orphaned `use AuditLog` imports in `OrderController` and `InventoryController` confirmed IDE-only (logic unaffected); kept as doctrine note.
+

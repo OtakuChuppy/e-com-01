@@ -19,14 +19,14 @@ use Illuminate\View\View;
 
 class CheckoutController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $cart = app(CartController::class)->cart($request);
         $cart->load(['items.product', 'items.variant']);
         $totals = app(CartController::class)->totals($cart);
 
         if ($cart->items->isEmpty()) {
-            abort(redirect(route('cart.index'))->getTargetUrl());
+            return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
         }
 
         return view('checkout.index', [
