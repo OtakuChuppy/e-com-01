@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Testing\File;
 use Tests\TestCase;
 
 class AdminTest extends TestCase
@@ -121,6 +122,33 @@ class AdminTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHasErrors('email');
         $this->assertStringContainsString('Too many login attempts', (string) session('errors')->get('email')[0]);
+    }
+
+    public function test_csv_import_endpoint_works(): void
+    {
+        $this->actingAs($this->makeUser('owner'));
+
+        $csv = implode(',', array_map(function ($v) {
+            return '"'.str_replace('"', '""', $v).'"';
+        }, [
+            ['sku', 'title', 'base_price', 'stock_quantity'],
+            ['IMP-0001', 'Imported Test Product', '1000.00', '50'],
+            ['IMP-0002', 'Imported Variant Set', '1350.00', '100', 'variant_sku', 'IMP-0002-M', 'variant_name', 'Size M', 'variant_price_override', '1450.00', 'variant_stock_quantity', '30', 'variant_is_active', '1'],
+        ]));
+
+        $response = $this->post('/admin/csv-import/upload', [
+            'file' => $this->prepareCsvFile($csv),
+            'category_slug' => '',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertCount(2, Product::whereIn('sku', ['IMP-0001', 'IMP-0002'])->get());
+        $this->assertCount(1, ProductVariant::where('sku', 'IMP-0002-M')->get());
+    }
+
+    private function prepareCsvFile(string $csv): Illuminate\Http\Testing\File
+    {
+        return \Illuminate\Http\Testing\File::create($csv, 'products.csv', 'text/csv');
     }
 
     public function test_health_endpoint_reveals_no_secrets(): void
