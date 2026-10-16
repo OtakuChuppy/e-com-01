@@ -4,6 +4,58 @@
 @source '../../storage/framework/views/*.php';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-display: 'Fraunces', ui-serif, Georgia, serif;
+
+    --color-ivory: #fbfaf7;
+    --color-forest: #344b3f;
+    --color-forest-deep: #283b31;
+    --color-clay: #a96e52;
+    --color-ink: #242821;
+    --color-muted: #77796f;
+    --color-linen: #f2efe8;
+    --color-moss: #e7ece5;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    background: #fbfaf7;
+    color: #242821;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+    background: #344b3f;
+    color: #fff;
+}
+
+:focus-visible {
+    outline: 2px solid #344b3f;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.font-display {
+    font-family: 'Fraunces', ui-serif, Georgia, serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }

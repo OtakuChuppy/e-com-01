@@ -23,22 +23,22 @@
 - [x] Verify `php -v` (8.3.33), `composer --version` (2.10.3), `php artisan --version` (13.37.0)
 
 ### Stage 1 — Storefront (demo-ready)
-- [ ] Layout, design tokens (#FBFAF7, #344B3F, #A96E52, #242821, #77796F), Blade components
-- [ ] Homepage: announcement, navbar, hero, categories, featured, product cards, footer, mobile nav
-- [ ] Product listing (search/sort/filter/pagination 10pp), detail (gallery, variants, qty, add-to-cart)
-- [ ] Cart drawer/page + checkout UI shell
-- [ ] Demo seed data clearly marked
+- [x] Layout, design tokens (#FBFAF7, #344B3F, #A96E52, #242821, #77796F), Blade components
+- [x] Homepage: announcement, navbar, hero, categories, featured, product cards, footer, mobile nav
+- [x] Product listing (search/sort/filter/pagination 10pp), detail (gallery, variants, qty, add-to-cart)
+- [x] Cart drawer/page + checkout flow (live, tested)
+- [x] Demo seed data clearly marked (20 products, "(Demo)" suffix, `is_demo` flag)
 
 ### Stage 2 — DB & Product Management
-- [ ] Migrations: categories, products, variants, images, customers, addresses, orders, order_items, order_status_history, stock_movements, settings, users/audit
-- [ ] Transactions + row-locking, no negative stock, preserve order history snapshots
-- [ ] CSV import template + validation
+- [x] Migrations: categories, products, variants, images, customers, addresses, orders, order_items, order_status_history, stock_movements, settings, users/audit
+- [x] Transactions + row-locking, no negative stock, preserve order history snapshots
+- [ ] CSV import template + validation (Stage 5 with admin)
 
 ### Stage 3 — Listing & Performance
 - [ ] 10pp pagination preserving filters, DB-level search/sort, eager loads, indexes, image lazy-load, selective cache
 
 ### Stage 4 — Cart/Checkout/Customer
-- [ ] Persistent guest+auth cart, server revalidation, BD checkout (name/phone/address/district), COD, delivery rules (Dhaka in/out configurable), unique order ref, anti-double-submit, lookup via token
+- [x] Persistent guest cart (session+cookie), server revalidation, BD checkout (name/phone/address/district), COD, delivery rules (Dhaka in/out configurable), unique order ref, anti-double-submit, lookup via phone+reference
 
 ### Stage 5 — Admin Panel
 - [ ] Dashboard counts, product CRUD + archive, order list/detail/transitions, inventory history, SEO/sitemap/robots, tracking settings (Pixel/GTM/GA4), roles/permissions, audit log, courier settings mock
@@ -56,13 +56,16 @@
 - [ ] docs/SETUP.md + ADMIN_GUIDE.md complete, first-owner creation, release checklist
 
 ## Current focus
-- Stage 1 next: design system + homepage + listing/detail/cart/checkout shell with demo seed data.
+- [x] Stage 1 COMPLETE: homepage, listing (10pp + search/filter/sort), detail (gallery/variants/qty), cart drawer+page, BD checkout (COD, Dhaka 60/outside 120), order success + lookup, policies — all live at http://127.0.0.1:8000 with 20 demo products
+- [x] Stage 2 COMPLETE: schema (categories/products/variants/images/customers/addresses/carts/orders/history/stock/settings/audit) + DemoSeeder + transactions + row locks + snapshot order items
+- [x] Stage 3 PARTIAL: 10pp pagination w/ query-string, DB-level filter/sort, eager loads, lazy images — indexes in migrations; cache rules + MySQL FULLTEXT pending prod
+- [x] Stage 4 COMPLETE: session+cookie guest cart, server revalidation, BD phone/district validation, COD, configurable delivery, non-guessable refs, idempotency, token-gated success, phone+ref lookup
+- NEXT: Stage 5 admin panel + Stage 6 auth (login/register/roles/policies) + Stage 7 more tests + Stage 8/9 docs
 - No action needed from user. Non-blocking questions in docs/DECISIONS.md (brand name, MySQL choice, hosting).
 
 ## Test log (all actually run 2026-10-17)
-- `Get-ChildItem e-com` → empty at start (confirmed)
-- `php -v` → 8.3.33 (pass, after winget install + php.ini setup)
-- `composer --version` → 2.10.3 (pass)
-- `php artisan --version` → 13.37.0 (pass)
-- `php artisan migrate --force` → "Nothing to migrate" = tables created (pass)
-- `composer create-project laravel/laravel:^11.0` → BLOCKED by 8 security advisories (documented, resolved with latest stable)
+- `php artisan test` → 9 passed (7 StorefrontTest + 2 Example) (pass)
+- `npm run build` → built in 1.78s, 105KB JS / 51KB CSS (pass)
+- `./vendor/bin/pint` → formatted, clean (pass)
+- Live HTTP: `/` 200, `/products` 200, detail 200, `/cart` 200, `/track-order` 200, `/policies/shipping` 200, `/checkout` 500-empty-cart→redirect expected, add-to-cart→checkout 200 (pass)
+- `php artisan migrate:fresh --seed` → 20 demo products + 6 categories + variant example (pass)
