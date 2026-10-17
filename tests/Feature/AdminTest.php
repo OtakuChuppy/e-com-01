@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -29,7 +30,7 @@ class AdminTest extends TestCase
     {
         $product = Product::published()->firstOrFail();
         $this->post('/cart', ['product_id' => $product->id, 'quantity' => 1]);
-        $this->post('/checkout', ['name' => 'A', 'phone' => '01711111111', 'address_line1' => 'H1', 'district' => 'Dhaka', 'idempotency_key' => uniqid('k')]);
+        $this->post('/checkout', ['name' => 'A', 'phone' => '01711111111', 'address_line1' => 'H1', 'delivery_zone' => 'inside_dhaka', 'idempotency_key' => uniqid('k')]);
 
         return Order::where('customer_phone', '01711111111')->latest()->firstOrFail();
     }
@@ -72,6 +73,48 @@ class AdminTest extends TestCase
         // pending → delivered skips the chain
         $this->actingAs($owner)->patch('/admin/orders/'.$order->id.'/status', ['status' => 'delivered'])->assertRedirect();
         $this->assertEquals('pending', $order->fresh()->status);
+    }
+
+    public function test_shipped_decrements_inventory_and_cancel_restores(): void
+    {
+        $owner = $this->makeUser('owner');
+        $order = $this->placeOrder();
+        $productId = $order->items->first()->product_id;
+        $product = Product::findOrFail($productId);
+        $stockBefore = $product->stock_quantity;
+        $qty = (int) $order->items->first()->quantity;
+
+        // Checkout reserves only — no deduction yet.
+        $this->assertEquals($stockBefore, $product->fresh()->stock_quantity);
+
+        // pending → confirmed → shipped
+        $this->actingAs($owner)->patch('/admin/orders/'.$order->id.'/status', ['status' => 'confirmed'])->assertRedirect();
+        $this->actingAs($owner)->patch('/admin/orders/'.$order->id.'/status', ['status' => 'shipped'])->assertRedirect();
+        $this->assertEquals('shipped', $order->fresh()->status);
+        $this->assertEquals($stockBefore - $qty, $product->fresh()->stock_quantity);
+        $this->assertNotNull($order->fresh()->stock_deducted_at);
+        $this->assertDatabaseHas('stock_movements', ['product_id' => $productId, 'change_qty' => -$qty, 'reason' => 'sale']);
+
+        // shipped → cancelled restores
+        $this->actingAs($owner)->patch('/admin/orders/'.$order->id.'/status', ['status' => 'cancelled'])->assertRedirect();
+        $this->assertEquals('cancelled', $order->fresh()->status);
+        $this->assertEquals($stockBefore, $product->fresh()->stock_quantity);
+        $this->assertDatabaseHas('stock_movements', ['product_id' => $productId, 'change_qty' => $qty, 'reason' => 'cancelled']);
+    }
+
+    public function test_ship_blocked_when_insufficient_stock(): void
+    {
+        $owner = $this->makeUser('owner');
+        $order = $this->placeOrder();
+        $productId = $order->items->first()->product_id;
+        $qty = (int) $order->items->first()->quantity;
+        // Staff sells the stock manually before shipping.
+        Product::where('id', $productId)->update(['stock_quantity' => $qty - 1]);
+
+        $this->actingAs($owner)->patch('/admin/orders/'.$order->id.'/status', ['status' => 'confirmed'])->assertRedirect();
+        $this->actingAs($owner)->patch('/admin/orders/'.$order->id.'/status', ['status' => 'shipped'])->assertRedirect();
+        $this->assertEquals('confirmed', $order->fresh()->status);
+        $this->assertNull($order->fresh()->stock_deducted_at);
     }
 
     public function test_admin_can_manage_products_but_not_users(): void
@@ -121,20 +164,24 @@ class AdminTest extends TestCase
         $response = $this->post('/admin/login', ['email' => 'owner@example.com', 'password' => 'wrong']);
         $response->assertRedirect();
         $response->assertSessionHasErrors('email');
-        $this->assertStringContainsString('Too many login attempts', (string) session('errors')->get('email')[0]);
+        $this->assertStringContainsString('Too many login attempts', (string) session('errors')->first('email'));
     }
 
     public function test_csv_import_endpoint_works(): void
     {
         $this->actingAs($this->makeUser('owner'));
 
-        $csv = implode(',', array_map(function ($v) {
-            return '"'.str_replace('"', '""', $v).'"';
-        }, [
-            ['sku', 'title', 'base_price', 'stock_quantity'],
+        $rows = [
+            ['sku', 'title', 'base_price', 'stock_quantity', 'variant_sku', 'variant_name', 'variant_price_override', 'variant_stock_quantity', 'variant_is_active'],
             ['IMP-0001', 'Imported Test Product', '1000.00', '50'],
-            ['IMP-0002', 'Imported Variant Set', '1350.00', '100', 'variant_sku', 'IMP-0002-M', 'variant_name', 'Size M', 'variant_price_override', '1450.00', 'variant_stock_quantity', '30', 'variant_is_active', '1'],
-        ]));
+            ['IMP-0002', 'Imported Variant Set', '1350.00', '100', 'IMP-0002-M', 'Size M', '1450.00', '30', '1'],
+        ];
+
+        $csv = implode("\n", array_map(function (array $row) {
+            return implode(',', array_map(function (string $v) {
+                return '"'.str_replace('"', '""', $v).'"';
+            }, $row));
+        }, $rows));
 
         $response = $this->post('/admin/csv-import/upload', [
             'file' => $this->prepareCsvFile($csv),
@@ -148,7 +195,7 @@ class AdminTest extends TestCase
 
     private function prepareCsvFile(string $csv): File
     {
-        return \Illuminate\Http\Testing\File::create($csv, 'products.csv', 'text/csv');
+        return File::createWithContent('products.csv', $csv);
     }
 
     public function test_health_endpoint_reveals_no_secrets(): void

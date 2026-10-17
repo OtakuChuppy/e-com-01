@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\CsvImportController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\OrderController;
@@ -55,8 +56,6 @@ Route::post('/admin/logout', [LoginController::class, 'destroy'])->name('admin.l
 
 // ---- Admin panel ----
 
-
-
 Route::prefix('admin')->name('admin.')->middleware(['auth', EnsureRole::class.':any-staff'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -80,8 +79,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', EnsureRole::class.':
         Route::post('/inventory/adjust', [InventoryController::class, 'adjust'])->name('inventory.adjust');
 
         // CSV import: any staff (template + validation + transactions)
-        Route::get('/csv-import/template', [App\Http\Controllers\Admin\CsvImportController::class, 'downloadTemplate'])->name('csv_import.template');
-        Route::post('/csv-import/upload', [App\Http\Controllers\Admin\CsvImportController::class, 'upload'])->name('csv_import.upload');
+        Route::get('/csv-import/template', [CsvImportController::class, 'downloadTemplate'])->name('csv_import.template');
+        Route::post('/csv-import/upload', [CsvImportController::class, 'upload'])->name('csv_import.upload');
 
         Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
         Route::patch('/settings', [SettingController::class, 'update'])->name('settings.update');

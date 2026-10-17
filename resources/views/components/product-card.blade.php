@@ -8,7 +8,7 @@
 @endphp
 
 <article class="group">
-    <a href="{{ route('products.show', $product->slug) }}" class="block overflow-hidden rounded bg-linen aspect-[4/5] relative" tabindex="0">
+    <a href="{{ route('products.show', $product->slug) }}" class="block overflow-hidden rounded bg-linen aspect-4/5 relative" tabindex="0">
         <img src="{{ $src }}" alt="{{ $img?->alt_text ?? $product->title }}" loading="lazy" width="600" height="750"
              class="w-full h-full object-cover transition duration-300 group-hover:scale-[1.03]"
              onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&q=80&auto=format&fit=crop';">

@@ -66,14 +66,15 @@ class StorefrontTest extends TestCase
             'name' => 'Test Customer',
             'phone' => '01712345678',
             'address_line1' => 'House 1, Road 2',
-            'district' => 'Dhaka',
+            'delivery_zone' => 'inside_dhaka',
             'idempotency_key' => 'test-key-'.uniqid(),
         ]);
         $response->assertRedirect();
 
-        $this->assertDatabaseHas('orders', ['customer_phone' => '01712345678', 'district' => 'Dhaka', 'status' => 'pending', 'payment_method' => 'cod']);
+        $this->assertDatabaseHas('orders', ['customer_phone' => '01712345678', 'delivery_zone' => 'inside_dhaka', 'status' => 'pending', 'payment_method' => 'cod']);
         $order = Order::where('customer_phone', '01712345678')->first();
-        $this->assertEquals($stockBefore - 2, $product->fresh()->stock_quantity);
+        // Checkout reserves only — stock unchanged until staff marks as shipped.
+        $this->assertEquals($stockBefore, $product->fresh()->stock_quantity);
         $this->assertEquals(60, (float) $order->delivery_charge);
 
         // Order lookup via reference + phone
@@ -88,13 +89,35 @@ class StorefrontTest extends TestCase
         $response->assertRedirect();
     }
 
+    public function test_checkout_rejects_invalid_zone(): void
+    {
+        $product = Product::published()->firstOrFail();
+        $this->post('/cart', ['product_id' => $product->id, 'quantity' => 1]);
+        $this->post('/checkout', [
+            'name' => 'Bad Zone', 'phone' => '01900001111',
+            'address_line1' => 'H1', 'delivery_zone' => 'mars',
+            'idempotency_key' => 'test-key-'.uniqid(),
+        ])->assertSessionHasErrors('delivery_zone');
+        $this->assertDatabaseMissing('orders', ['customer_phone' => '01900001111']);
+    }
+
+    public function test_checkout_page_shows_zone_selector(): void
+    {
+        $product = Product::published()->firstOrFail();
+        $this->post('/cart', ['product_id' => $product->id, 'quantity' => 1]);
+        $this->get('/checkout')->assertOk()
+            ->assertSee('Inside Dhaka')
+            ->assertSee('Outside Dhaka')
+            ->assertDontSee('Postal code');
+    }
+
     public function test_outside_dhaka_delivery_charge(): void
     {
         $product = Product::published()->where('stock_quantity', '>', 2)->firstOrFail();
         $this->post('/cart', ['product_id' => $product->id, 'quantity' => 1]);
         $this->post('/checkout', [
             'name' => 'Outside Buyer', 'phone' => '01899998888',
-            'address_line1' => 'Village Road', 'district' => 'Chattogram',
+            'address_line1' => 'Village Road', 'delivery_zone' => 'outside_dhaka',
             'idempotency_key' => 'test-key-'.uniqid(),
         ])->assertRedirect();
         $order = Order::where('customer_phone', '01899998888')->first();

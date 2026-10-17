@@ -16,7 +16,7 @@
 <p class="text-sm text-muted border border-dashed border-ink/20 rounded p-6 text-center mt-4">No products found.</p>
 @else
 <div class="bg-white border border-ink/10 rounded overflow-x-auto mt-4">
-<table class="w-full text-sm min-w-[680px]">
+<table class="w-full text-sm min-w-170">
 <thead><tr class="text-left text-xs text-muted border-b border-ink/10"><th class="px-4 py-2">Product</th><th class="px-4 py-2">SKU</th><th class="px-4 py-2">Price</th><th class="px-4 py-2">Stock</th><th class="px-4 py-2">Status</th></tr></thead>
 <tbody>@foreach ($products as $p)
 <tr class="border-b border-ink/5 last:border-0">

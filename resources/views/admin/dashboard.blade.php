@@ -20,7 +20,7 @@
 <p class="text-sm text-muted border border-dashed border-ink/20 rounded p-6 text-center">No orders yet. New checkout orders will appear here.</p>
 @else
 <div class="bg-white border border-ink/10 rounded overflow-x-auto">
-<table class="w-full text-sm min-w-[560px]">
+<table class="w-full text-sm min-w-140">
 <thead><tr class="text-left text-xs text-muted border-b border-ink/10"><th class="px-4 py-2">Reference</th><th class="px-4 py-2">Customer</th><th class="px-4 py-2">Total</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Placed</th></tr></thead>
 <tbody>
 @foreach ($recent as $o)

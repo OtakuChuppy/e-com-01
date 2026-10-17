@@ -19,7 +19,7 @@ class Order extends Model
         'cancelled' => [],
     ];
 
-    protected $fillable = ['reference', 'lookup_token', 'customer_id', 'user_id', 'customer_name', 'customer_phone', 'customer_email', 'address_line1', 'address_line2', 'area', 'district', 'postal_code', 'delivery_notes', 'subtotal', 'delivery_charge', 'discount', 'total', 'payment_method', 'payment_status', 'status', 'admin_note', 'placed_at'];
+    protected $fillable = ['reference', 'lookup_token', 'customer_id', 'user_id', 'customer_name', 'customer_phone', 'customer_email', 'address_line1', 'address_line2', 'area', 'district', 'delivery_zone', 'postal_code', 'delivery_notes', 'subtotal', 'delivery_charge', 'discount', 'total', 'payment_method', 'payment_status', 'status', 'stock_deducted_at', 'admin_note', 'placed_at'];
 
     protected function casts(): array
     {
@@ -29,6 +29,7 @@ class Order extends Model
             'discount' => 'decimal:2',
             'total' => 'decimal:2',
             'placed_at' => 'datetime',
+            'stock_deducted_at' => 'datetime',
         ];
     }
 

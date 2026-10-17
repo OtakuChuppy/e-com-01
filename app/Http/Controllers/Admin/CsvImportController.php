@@ -7,8 +7,9 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Response;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -29,7 +30,7 @@ class CsvImportController extends Controller
         $filename = 'product-import-template.csv';
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             'Cache-Control' => 'no-cache',
         ];
 
@@ -60,10 +61,34 @@ class CsvImportController extends Controller
 
         return response(implode("\n", $lines)."\n", 200, $headers);
     }
+
     public function upload(Request $request): RedirectResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
+            'file' => ['required', 'file', 'max:2048', function ($attr, $value, $fail) {
+                // Accept by extension (fallback: MIME) + content sniff, not just MIME guess.
+                $ext = strtolower((string) $value?->getClientOriginalExtension());
+                if ($ext === '') {
+                    $ext = strtolower((string) $value?->guessExtension());
+                }
+                $mime = strtolower((string) $value?->getMimeType());
+                $mimeOk = in_array($mime, ['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel', 'text/x-csv', 'application/octet-stream'], true);
+                if (! in_array($ext, ['csv', 'txt'], true) && ! $mimeOk) {
+                    $fail('The file field must be a file of type: csv, txt.');
+
+                    return;
+                }
+                // Basic content sanity: must contain at least sku + title headers.
+                try {
+                    $raw = file_get_contents($value->getRealPath());
+                    $first = strtolower(strtok((string) $raw, "\r\n") ?: '');
+                    if (! str_contains($first, 'sku') || ! str_contains($first, 'title')) {
+                        $fail('Uploaded file does not look like a product CSV (missing sku/title header).');
+                    }
+                } catch (\Throwable) {
+                    $fail('Could not read the uploaded file.');
+                }
+            }],
             'category_slug' => ['nullable', 'string'],
         ]);
 
@@ -102,6 +127,7 @@ class CsvImportController extends Controller
 
             if (empty($record['sku'])) {
                 $summary['skipped']++;
+
                 continue;
             }
 
@@ -112,7 +138,8 @@ class CsvImportController extends Controller
 
                     if (empty($title)) {
                         $summary['errors']++;
-                        $firstError = $firstError ?: 'Row ' . ($index + 2) . ': SKU ' . $sku . ' has no title.';
+                        $firstError = $firstError ?: 'Row '.($index + 2).': SKU '.$sku.' has no title.';
+
                         return;
                     }
 
@@ -128,14 +155,16 @@ class CsvImportController extends Controller
                     $basePrice = $this->parseDecimal($record['base_price'] ?? null);
                     if ($basePrice === null) {
                         $summary['errors']++;
-                        $firstError = $firstError ?: 'Row ' . ($index + 2) . ': SKU ' . $sku . ' has an invalid base_price.';
+                        $firstError = $firstError ?: 'Row '.($index + 2).': SKU '.$sku.' has an invalid base_price.';
+
                         return;
                     }
 
                     $stock = (int) ($record['stock_quantity'] ?? 0);
                     if ($stock < 0) {
                         $summary['errors']++;
-                        $firstError = $firstError ?: 'Row ' . ($index + 2) . ': SKU ' . $sku . ' has a negative stock_quantity.';
+                        $firstError = $firstError ?: 'Row '.($index + 2).': SKU '.$sku.' has a negative stock_quantity.';
+
                         return;
                     }
 
@@ -144,21 +173,21 @@ class CsvImportController extends Controller
                         [
                             'category_id' => $categoryId,
                             'title' => $title,
-                            'description' => $record['description'] ?? null,
-                            'short_description' => $record['short_description'] ?? null,
-                            'brand' => $record['brand'] ?? null,
-                            'status' => $record['status'] ?? 'draft',
+                            'description' => $this->emptyToNull($record['description'] ?? null),
+                            'short_description' => $this->emptyToNull($record['short_description'] ?? null),
+                            'brand' => $this->emptyToNull($record['brand'] ?? null),
+                            'status' => $this->statusOrDefault($record['status'] ?? null),
                             'base_price' => $basePrice,
                             'compare_at_price' => $this->parseDecimal($record['compare_at_price'] ?? null),
                             'cost_price' => $this->parseDecimal($record['cost_price'] ?? null),
                             'stock_quantity' => $stock,
-                            'low_stock_threshold' => (int) ($record['low_stock_threshold'] ?? 5),
+                            'low_stock_threshold' => $this->parseUnsignedInteger($record['low_stock_threshold'] ?? null) ?? 5,
                             'weight_grams' => $this->parseUnsignedInteger($record['weight_grams'] ?? null),
                             'is_featured' => $this->parseBool($record['is_featured'] ?? '0'),
                             'is_demo' => $this->parseBool($record['is_demo'] ?? '0'),
-                            'meta_title' => $record['meta_title'] ?? null,
-                            'meta_description' => $record['meta_description'] ?? null,
-                            'canonical_url' => $record['canonical_url'] ?? null,
+                            'meta_title' => $this->emptyToNull($record['meta_title'] ?? null),
+                            'meta_description' => $this->emptyToNull($record['meta_description'] ?? null),
+                            'canonical_url' => $this->emptyToNull($record['canonical_url'] ?? null),
                             'published_at' => $this->parseDate($record['published_at'] ?? null),
                         ]
                     );
@@ -182,26 +211,26 @@ class CsvImportController extends Controller
                 });
             } catch (\Throwable $e) {
                 $summary['errors']++;
-                $firstError = $firstError ?: 'Row ' . ($index + 2) . ': ' . $e->getMessage();
+                $firstError = $firstError ?: 'Row '.($index + 2).': '.$e->getMessage();
             }
         }
 
         $messages = [];
         if ($summary['created']) {
-            $messages[] = 'Created ' . $summary['created'] . ' new product(s).';
+            $messages[] = 'Created '.$summary['created'].' new product(s).';
         }
         if ($summary['updated']) {
-            $messages[] = 'Updated ' . $summary['updated'] . ' existing product(s).';
+            $messages[] = 'Updated '.$summary['updated'].' existing product(s).';
         }
         if ($summary['skipped']) {
-            $messages[] = 'Skipped ' . $summary['skipped'] . ' row(s) without a SKU.';
+            $messages[] = 'Skipped '.$summary['skipped'].' row(s) without a SKU.';
         }
         if ($summary['errors']) {
-            $messages[] = $summary['errors'] . ' row(s) had errors: ' . $firstError;
+            $messages[] = $summary['errors'].' row(s) had errors: '.$firstError;
         }
 
         foreach ($messages as $msg) {
-            session()->flash('csv_import_' . $msg, $msg);
+            session()->flash('csv_import_'.$msg, $msg);
         }
 
         if ($summary['errors'] && ! $summary['created'] && ! $summary['updated']) {
@@ -274,6 +303,7 @@ class CsvImportController extends Controller
         }
 
         $int = (int) $value;
+
         return $int < 0 ? null : $int;
     }
 
@@ -282,17 +312,31 @@ class CsvImportController extends Controller
         return in_array(strtolower((string) $value), ['1', 'true', 'yes', 'on'], true);
     }
 
-    private function parseDate(?string $value): ?\Illuminate\Support\Carbon
+    private function parseDate(?string $value): ?Carbon
     {
         if (empty($value)) {
             return null;
         }
 
         try {
-            return \Illuminate\Support\Carbon::parse($value);
+            return Carbon::parse($value);
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function emptyToNull(?string $value): ?string
+    {
+        $v = trim((string) $value);
+
+        return $v === '' ? null : $v;
+    }
+
+    private function statusOrDefault(?string $value): string
+    {
+        $v = strtolower(trim((string) $value));
+
+        return in_array($v, ['draft', 'published', 'archived'], true) ? $v : 'draft';
     }
 
     private function csvRow(array $fields): string

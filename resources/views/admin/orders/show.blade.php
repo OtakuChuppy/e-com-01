@@ -18,8 +18,7 @@
 <div class="flex justify-between font-semibold"><dt>Total</dt><dd>৳{{ number_format((float)$order->total,0) }}</dd></div>
 </dl>
 <h2 class="font-medium mt-5">Deliver to</h2>
-<p class="text-sm text-muted mt-1">{{ $order->customer_name }} · {{ $order->customer_phone }}<br>{{ $order->address_line1 }}{{ $order->area ? ', '.$order->area : '' }}, {{ $order->district }}</p>
-@if ($order->delivery_notes)<p class="text-sm mt-1">Note: {{ $order->delivery_notes }}</p>@endif
+<p class="text-sm text-muted mt-1">{{ $order->customer_name }} · {{ $order->customer_phone }}<br>{{ $order->address_line1 }}<br><span class="capitalize">{{ $order->delivery_zone === 'outside_dhaka' ? 'Outside Dhaka' : 'Inside Dhaka' }}</span>@if(!empty($order->district) && !in_array($order->district, ['Dhaka', 'Outside Dhaka'], true)) · {{ $order->district }}@endif</p>
 <h2 class="font-medium mt-5">Status history</h2>
 <ul class="text-sm mt-2 space-y-1">
 @foreach ($order->history as $h)
@@ -29,8 +28,8 @@
 </div>
 <aside class="bg-white border border-ink/10 rounded p-5 h-fit">
 <h2 class="font-medium">Change status</h2>
-<p class="text-xs text-muted mt-1">Only valid next steps are shown. This is logged with your name.</p>
-<form action="{{ route('admin.orders.status', $order) }}" method="POST" class="mt-3 space-y-3" onsubmit="return confirm('Change status to ' + document.getElementById('st').value + '?');">
+<p class="text-xs text-muted mt-1">Only valid next steps are shown. This is logged with your name. Marking as <span class="font-medium">shipped</span> decreases inventory; cancelling a shipped order restores it.</p>
+<form action="{{ route('admin.orders.status', $order) }}" method="POST" class="mt-3 space-y-3" onsubmit="return confirm('Change status to ' + document.getElementById('st').value + (document.getElementById('st').value === 'shipped' ? ' and DECREASE inventory?' : '?'));">
 @csrf @method('PATCH')
 <label for="st" class="text-sm font-medium">Next status</label>
 <select id="st" name="status" class="w-full border border-ink/15 rounded px-3 py-2 text-sm bg-white">

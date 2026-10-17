@@ -7,7 +7,7 @@
     <div class="grid md:grid-cols-2 gap-8 md:gap-12 mt-4">
         <div>
             @php $imgs = $product->images; $first = $imgs->first()?->path; if ($first && ! str_starts_with($first, 'http')) $first = asset('storage/'.$first); @endphp
-            <div class="rounded bg-linen aspect-[4/5] overflow-hidden">
+            <div class="rounded bg-linen aspect-4/5 overflow-hidden">
                 <img id="main-img" src="{{ $first ?? 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80&auto=format&fit=crop' }}" alt="{{ $product->title }}" class="w-full h-full object-cover" width="800" height="1000" fetchpriority="high" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80&auto=format&fit=crop';">
             </div>
             @if ($imgs->count() > 1)

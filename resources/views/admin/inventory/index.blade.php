@@ -35,7 +35,7 @@
 </div>
 <h2 class="font-medium mt-6 mb-2">Lowest stock first</h2>
 <div class="bg-white border border-ink/10 rounded overflow-x-auto">
-<table class="w-full text-sm min-w-[520px]">
+<table class="w-full text-sm min-w-130">
 <thead><tr class="text-left text-xs text-muted border-b border-ink/10"><th class="px-4 py-2">Product</th><th class="px-4 py-2">SKU</th><th class="px-4 py-2">Stock</th><th class="px-4 py-2">Alert at</th></tr></thead>
 <tbody>@foreach($products as $p)
 <tr class="border-b border-ink/5 last:border-0"><td class="px-4 py-2">{{ $p->title }}</td><td class="px-4 py-2 text-muted">{{ $p->sku }}</td><td class="px-4 py-2 font-medium">{{ $p->stock_quantity }}</td><td class="px-4 py-2">{{ $p->low_stock_threshold }}</td></tr>

@@ -14,10 +14,10 @@
         </ul>
         <dl class="text-sm mt-3 pt-3 border-t border-ink/10 space-y-1">
             <div class="flex justify-between"><dt class="text-muted">Subtotal</dt><dd>৳{{ number_format((float) $order->subtotal, 0) }}</dd></div>
-            <div class="flex justify-between"><dt class="text-muted">Delivery ({{ $order->district }})</dt><dd>৳{{ number_format((float) $order->delivery_charge, 0) }}</dd></div>
+            <div class="flex justify-between"><dt class="text-muted">Delivery ({{ $order->delivery_zone === 'outside_dhaka' ? 'Outside Dhaka' : 'Inside Dhaka' }})</dt><dd>৳{{ number_format((float) $order->delivery_charge, 0) }}</dd></div>
             <div class="flex justify-between font-semibold text-base"><dt>Total (COD)</dt><dd>৳{{ number_format((float) $order->total, 0) }}</dd></div>
         </dl>
-        <p class="text-xs text-muted mt-3">Deliver to: {{ $order->address_line1 }}, {{ $order->district }}</p>
+        <p class="text-xs text-muted mt-3">Deliver to: {{ $order->customer_name }}, {{ $order->address_line1 }}</p>
     </div>
     <div class="flex gap-3 mt-6">
         <a href="{{ route('products.index') }}" class="flex-1 border border-ink/20 text-sm font-medium px-4 py-3 rounded">Continue shopping</a>

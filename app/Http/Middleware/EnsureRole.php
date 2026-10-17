@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -17,8 +18,12 @@ class EnsureRole
 
         if (! $user || ! $user->is_active) {
             if ($user && ! $user->is_active) {
-                // @phpstan-ignore-line Laravel facade magic method
-                auth()->logout();
+                $guard = auth()->guard();
+
+                if ($guard instanceof StatefulGuard) {
+                    $guard->logout();
+                }
+
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
             }

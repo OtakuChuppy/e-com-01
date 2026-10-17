@@ -16,7 +16,7 @@
             <div class="flex justify-between"><dt class="text-muted">Delivery</dt><dd>৳{{ number_format((float) $order->delivery_charge, 0) }}</dd></div>
             <div class="flex justify-between font-semibold text-base"><dt>Total</dt><dd>৳{{ number_format((float) $order->total, 0) }}</dd></div>
         </dl>
-        <p class="text-xs text-muted mt-3">Deliver to: {{ $order->customer_name }}, {{ $order->address_line1 }}, {{ $order->district }} · {{ $order->customer_phone }}</p>
+        <p class="text-xs text-muted mt-3">Deliver to: {{ $order->customer_name }}, {{ $order->address_line1 }} · {{ $order->customer_phone }} · {{ $order->delivery_zone === 'outside_dhaka' ? 'Outside Dhaka' : 'Inside Dhaka' }}</p>
     </div>
 </section>
 @endsection

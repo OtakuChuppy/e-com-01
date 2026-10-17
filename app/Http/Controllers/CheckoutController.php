@@ -10,7 +10,6 @@ use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Setting;
-use App\Models\StockMovement;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,11 +43,7 @@ class CheckoutController extends Controller
             'phone' => ['required', 'string', 'max:20', 'regex:/^[0-9+\-\s]{6,20}$/'],
             'email' => ['nullable', 'email', 'max:190'],
             'address_line1' => ['required', 'string', 'max:255'],
-            'address_line2' => ['nullable', 'string', 'max:255'],
-            'area' => ['nullable', 'string', 'max:120'],
-            'district' => ['required', 'string', 'max:120'],
-            'postal_code' => ['nullable', 'string', 'max:20'],
-            'delivery_notes' => ['nullable', 'string', 'max:500'],
+            'delivery_zone' => ['required', 'in:inside_dhaka,outside_dhaka'],
             'idempotency_key' => ['required', 'string', 'max:64'],
         ]);
 
@@ -84,29 +79,27 @@ class CheckoutController extends Controller
             $product = Product::published()->lockForUpdate()->findOrFail($item->product_id);
             $variant = $item->product_variant_id ? ProductVariant::where('product_id', $product->id)->lockForUpdate()->findOrFail($item->product_variant_id) : null;
             $price = (float) ($variant?->price_override ?? $product->base_price);
+            // Reserve check only — stock is decremented when staff marks the order as shipped.
             $available = $variant?->stock_quantity ?? $product->stock_quantity;
             if ($available < $item->quantity) {
                 throw new \RuntimeException("Insufficient stock for {$product->title}. Only {$available} left.");
             }
-            if ($variant) {
-                $variant->decrement('stock_quantity', $item->quantity);
-                $balance = (int) $variant->fresh()->stock_quantity;
-            } else {
-                $product->decrement('stock_quantity', $item->quantity);
-                $balance = (int) $product->fresh()->stock_quantity;
-            }
-            StockMovement::create(['product_id' => $product->id, 'product_variant_id' => $variant?->id, 'change_qty' => -$item->quantity, 'balance_after' => $balance, 'reason' => 'sale']);
             $lt = $price * $item->quantity;
             $subtotal += $lt;
             $lines[] = [$product, $variant, $price, $item->quantity, $lt];
         }
-        $inside = mb_strtolower(trim($v['district'])) === 'dhaka';
+        $inside = $v['delivery_zone'] === 'inside_dhaka';
+        // Back-compat: legacy district input still maps to a zone.
+        if (isset($v['district'])) {
+            $inside = mb_strtolower(trim($v['district'])) === 'dhaka';
+        }
+        $district = $inside ? 'Dhaka' : 'Outside Dhaka';
         $delivery = $inside ? (float) (Setting::get('delivery_inside_dhaka', '60') ?? 60) : (float) (Setting::get('delivery_outside_dhaka', '120') ?? 120);
         $customer = Customer::firstOrCreate(['phone' => $v['phone']], ['name' => $v['name'], 'email' => $v['email'] ?? null, 'user_id' => $request->user()?->id]);
         do {
             $reference = 'DM-'.strtoupper(Str::random(6));
         } while (Order::where('reference', $reference)->exists());
-        $order = Order::create(['reference' => $reference, 'lookup_token' => Str::random(48), 'customer_id' => $customer->id, 'user_id' => $request->user()?->id, 'customer_name' => $v['name'], 'customer_phone' => $v['phone'], 'customer_email' => $v['email'] ?? null, 'address_line1' => $v['address_line1'], 'address_line2' => $v['address_line2'] ?? null, 'area' => $v['area'] ?? null, 'district' => $v['district'], 'postal_code' => $v['postal_code'] ?? null, 'delivery_notes' => $v['delivery_notes'] ?? null, 'subtotal' => $subtotal, 'delivery_charge' => $delivery, 'discount' => 0, 'total' => $subtotal + $delivery, 'payment_method' => 'cod', 'payment_status' => 'unpaid', 'status' => 'pending']);
+        $order = Order::create(['reference' => $reference, 'lookup_token' => Str::random(48), 'customer_id' => $customer->id, 'user_id' => $request->user()?->id, 'customer_name' => $v['name'], 'customer_phone' => $v['phone'], 'customer_email' => $v['email'] ?? null, 'address_line1' => $v['address_line1'], 'address_line2' => null, 'area' => null, 'district' => $district, 'postal_code' => null, 'delivery_notes' => null, 'delivery_zone' => $inside ? 'inside_dhaka' : 'outside_dhaka', 'subtotal' => $subtotal, 'delivery_charge' => $delivery, 'discount' => 0, 'total' => $subtotal + $delivery, 'payment_method' => 'cod', 'payment_status' => 'unpaid', 'status' => 'pending']);
         foreach ($lines as [$p, $var, $price, $qty, $lt]) {
             OrderItem::create(['order_id' => $order->id, 'product_id' => $p->id, 'product_variant_id' => $var?->id, 'name' => $p->title, 'sku' => $var?->sku ?? $p->sku, 'variant_name' => $var?->name, 'unit_price' => $price, 'quantity' => $qty, 'line_total' => $lt]);
         }

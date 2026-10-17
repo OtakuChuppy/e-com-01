@@ -18,8 +18,8 @@
             </dl>
         </div>
         <div class="grid grid-cols-2 gap-3 md:gap-4">
-            <img src="https://images.unsplash.com/photo-1556909212-d5b604d0c90d?w=700&q=80&auto=format&fit=crop" alt="Curated kitchen essentials" class="rounded aspect-[3/4] object-cover w-full" width="700" height="933" fetchpriority="high" onerror="this.style.display='none'">
-            <img src="https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=700&q=80&auto=format&fit=crop" alt="Folded everyday apparel" class="rounded aspect-[3/4] object-cover w-full mt-6" width="700" height="933" loading="lazy" onerror="this.style.display='none'">
+            <img src="https://images.unsplash.com/photo-1556909212-d5b604d0c90d?w=700&q=80&auto=format&fit=crop" alt="Curated kitchen essentials" class="rounded aspect-3/4 object-cover w-full" width="700" height="933" fetchpriority="high" onerror="this.style.display='none'">
+            <img src="https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=700&q=80&auto=format&fit=crop" alt="Folded everyday apparel" class="rounded aspect-3/4 object-cover w-full mt-6" width="700" height="933" loading="lazy" onerror="this.style.display='none'">
         </div>
     </div>
 </section>
