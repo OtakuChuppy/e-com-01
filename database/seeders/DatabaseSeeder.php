@@ -14,6 +14,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(DemoSeeder::class);
+        // Both seeders are idempotent (updateOrCreate/firstOrCreate) and safe to run
+        // on every deploy: settings/categories refresh, owner account only created once.
+        $this->call([
+            DemoSeeder::class,
+            OwnerSeeder::class,
+        ]);
     }
 }
