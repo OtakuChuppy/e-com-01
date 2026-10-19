@@ -1,0 +1,50 @@
+# Free hosting on Render: web service (Docker) + external free Postgres (Neon).
+# DB is NOT provisioned here — Render free Postgres expires in 30 days.
+# Use a free Neon project (free forever) and paste its pooled connection string
+# as DB_URL when the blueprint asks for it.
+services:
+  - type: web
+    name: ecom-store
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: APP_NAME
+        value: E-Com Store
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      # Paste at blueprint setup: base64:... (php artisan key:generate --show)
+      - key: APP_KEY
+        sync: false
+      # After first deploy, edit this to your real https://<name>.onrender.com URL
+      - key: APP_URL
+        value: https://ecom-store.onrender.com
+      # Paste at blueprint setup: Neon pooled connection string
+      # (postgres://user:pass@ep-xxx.aws.neon.tech/neondb?sslmode=require)
+      - key: DB_URL
+        sync: false
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: CACHE_STORE
+        value: database
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: QUEUE_CONNECTION
+        value: sync
+      # Render terminates TLS at its proxy; trust it so rate limiting sees real client IPs
+      - key: TRUSTED_PROXIES
+        value: "*"
+      - key: PHP_CLI_SERVER_WORKERS
+        value: "4"
+      - key: MAIL_MAILER
+        value: log
+      # Admin login: OWNER_EMAIL / OWNER_PASSWORD (idempotent OwnerSeeder)
+      - key: OWNER_EMAIL
+        value: owner@example.com
+      - key: OWNER_PASSWORD
+        sync: false
