@@ -9,6 +9,9 @@ use Illuminate\View\View;
 
 class ProductController extends Controller
 {
+    // Storefront product listing ebong detail page. Shudhumatro 'published' product
+    // dekhano hoye thake. Search, category filter, sort ebong price filter support kore.
+
     public function index(Request $request): View
     {
         $validated = $request->validate([
@@ -18,7 +21,7 @@ class ProductController extends Controller
             'max_price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $query = Product::published()->with(['category', 'images']);
+        $query = Product::published()->with(['category', 'images', 'variants']);
 
         if (! empty($validated['q'])) {
             $q = $validated['q'];
@@ -60,6 +63,7 @@ class ProductController extends Controller
         $product = Product::published()->with(['category', 'images', 'variants'])
             ->where('slug', $slug)->firstOrFail();
 
+        // Same category theke related product, bortoman product-ti chhara.
         $related = Product::published()->with(['images'])
             ->where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)

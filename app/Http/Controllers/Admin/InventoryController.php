@@ -14,6 +14,9 @@ use Illuminate\View\View;
 
 class InventoryController extends Controller
 {
+    // Admin inventory: stock list, low-stock count, recent stock movements.
+    // Stock adjust transaction-e hoye thake jate negative stock na hoy.
+
     public function index(Request $request): View
     {
         $validated = $request->validate(['q' => ['nullable', 'string', 'max:100']]);
@@ -39,8 +42,9 @@ class InventoryController extends Controller
         ]);
 
         DB::transaction(function () use ($validated, $request) {
-            if ($validated['variant_id']) {
-                $variant = ProductVariant::where('product_id', $validated['product_id'])->lockForUpdate()->findOrFail($validated['variant_id']);
+            $variantId = $validated['variant_id'] ?? null;
+            if ($variantId) {
+                $variant = ProductVariant::where('product_id', $validated['product_id'])->lockForUpdate()->findOrFail($variantId);
                 $new = $variant->stock_quantity + $validated['change_qty'];
                 if ($new < 0) {
                     throw new \RuntimeException('Adjustment would make variant stock negative.');
@@ -59,7 +63,7 @@ class InventoryController extends Controller
 
             StockMovement::create([
                 'product_id' => $validated['product_id'],
-                'product_variant_id' => $validated['variant_id'] ?? null,
+                'product_variant_id' => $variantId,
                 'change_qty' => $validated['change_qty'],
                 'balance_after' => $balance,
                 'reason' => $validated['reason'],

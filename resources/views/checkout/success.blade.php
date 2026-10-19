@@ -1,27 +1,31 @@
 @extends('layouts.store')
-@section('title', 'Order confirmed — '.config('shop.name'))
+@section('title', 'অর্ডার কনফার্ম — '.config('shop.name'))
 @section('content')
-<section class="max-w-2xl mx-auto px-4 sm:px-6 pt-12 text-center">
-    <p class="w-12 h-12 rounded-full bg-moss text-forest grid place-items-center mx-auto" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg></p>
-    <h1 class="font-display text-3xl md:text-4xl tracking-tight mt-4">Thank you — order received.</h1>
-    <p class="text-muted mt-2">Reference <span class="font-semibold text-ink">{{ $order->reference }}</span> · We will call {{ $order->customer_phone }} to confirm.</p>
-    <div class="text-left border border-ink/10 rounded p-5 mt-8 bg-white/60">
-        <h2 class="font-medium">Order summary</h2>
-        <ul class="text-sm mt-3 space-y-1.5">
-            @foreach ($order->items as $it)
-            <li class="flex justify-between gap-2"><span>{{ $it->name }}{{ $it->variant_name ? ' ('.$it->variant_name.')' : '' }} × {{ $it->quantity }}</span><span>৳{{ number_format((float) $it->line_total, 0) }}</span></li>
-            @endforeach
-        </ul>
-        <dl class="text-sm mt-3 pt-3 border-t border-ink/10 space-y-1">
-            <div class="flex justify-between"><dt class="text-muted">Subtotal</dt><dd>৳{{ number_format((float) $order->subtotal, 0) }}</dd></div>
-            <div class="flex justify-between"><dt class="text-muted">Delivery ({{ $order->delivery_zone === 'outside_dhaka' ? 'Outside Dhaka' : 'Inside Dhaka' }})</dt><dd>৳{{ number_format((float) $order->delivery_charge, 0) }}</dd></div>
-            <div class="flex justify-between font-semibold text-base"><dt>Total (COD)</dt><dd>৳{{ number_format((float) $order->total, 0) }}</dd></div>
-        </dl>
-        <p class="text-xs text-muted mt-3">Deliver to: {{ $order->customer_name }}, {{ $order->address_line1 }}</p>
+<section class="max-w-2xl mx-auto px-4 sm:px-6 pt-12 md:pt-20 pb-12 text-center">
+    <div class="w-16 h-16 rounded-full bg-moss text-forest flex items-center justify-center mx-auto mb-4 animate-scale-in">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
     </div>
-    <div class="flex gap-3 mt-6">
-        <a href="{{ route('products.index') }}" class="flex-1 border border-ink/20 text-sm font-medium px-4 py-3 rounded">Continue shopping</a>
-        <a href="{{ route('account.orders') }}" class="flex-1 bg-forest text-white text-sm font-medium px-4 py-3 rounded">Track order</a>
+    <h1 class="font-display text-3xl md:text-4xl tracking-tight mt-3">ধন্যবাদ — অর্ডার গৃহীত হয়েছে।</h1>
+    <p class="text-muted mt-3">রেফারেন্স <span class="font-semibold text-ink">{{ $order->reference }}</span> · কনফার্ম করতে আমরা {{ $order->customer_phone }} নম্বরে কল করব।</p>
+    <div class="mt-10 flex justify-center">
+        <div class="text-left border border-ink/10 rounded-xl p-6 md:p-8 bg-white shadow-sm w-full max-w-md">
+            <h2 class="font-medium mb-3">অর্ডার সারাংশ</h2>
+            <ul class="text-sm mt-3 space-y-2">
+                @foreach ($order->items as $it)
+                <li class="flex justify-between gap-3"><span class="min-w-0">{{ $it->name }}{{ $it->variant_name ? ' ('.$it->variant_name.')' : '' }} × {{ $it->quantity }}</span><span class="shrink-0">৳{{ number_format((float) $it->line_total, 0) }}</span></li>
+                @endforeach
+            </ul>
+            <dl class="text-sm mt-4 pt-4 border-t border-ink/10 space-y-1.5">
+                <div class="flex justify-between gap-3"><dt class="text-muted">উপমোট</dt><dd class="shrink-0">৳{{ number_format((float) $order->subtotal, 0) }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-muted">ডেলিভারি ({{ $order->delivery_zone === 'outside_dhaka' ? 'ঢাকার বাইরে' : 'ঢাকার ভিতরে' }})</dt><dd class="shrink-0">৳{{ number_format((float) $order->delivery_charge, 0) }}</dd></div>
+                <div class="flex justify-between gap-3 font-semibold text-lg"><dt class="text-muted">মোট (COD)</dt><dd class="shrink-0">৳{{ number_format((float) $order->total, 0) }}</dd></div>
+            </dl>
+            <p class="text-xs text-muted mt-4">ডেলিভারি ঠিকানা: {{ $order->customer_name }}, {{ $order->address_line1 }}</p>
+        </div>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-3 justify-center mt-10">
+        <a href="{{ route('products.index') }}" class="flex-1 border border-ink/20 text-sm font-medium px-4 py-3 rounded-xl text-ink hover:bg-lined transition-colors">কেনাকাটা চালিয়ে যান</a>
+        <a href="{{ route('account.orders') }}" class="flex-1 btn btn-primary btn-md text-sm">অর্ডার ট্র্যাক করুন</a>
     </div>
 </section>
 @endsection

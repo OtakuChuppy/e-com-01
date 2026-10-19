@@ -4,11 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\ProductVariant;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Testing\File;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminTest extends TestCase
@@ -19,6 +22,10 @@ class AdminTest extends TestCase
     {
         parent::setUp();
         $this->seed(DemoSeeder::class);
+        // No demo products are seeded anymore; build one published product for
+        // order tests. Image tests build their own product + image below.
+        $this->seed(DemoSeeder::class);
+        Product::factory()->create(['status' => 'published']);
     }
 
     private function makeUser(string $role): User
@@ -32,7 +39,7 @@ class AdminTest extends TestCase
         $this->post('/cart', ['product_id' => $product->id, 'quantity' => 1]);
         $this->post('/checkout', ['name' => 'A', 'phone' => '01711111111', 'address_line1' => 'H1', 'delivery_zone' => 'inside_dhaka', 'idempotency_key' => uniqid('k')]);
 
-        return Order::where('customer_phone', '01711111111')->latest()->firstOrFail();
+        return Order::where('customer_phone', '01711111111')->latest('id')->firstOrFail();
     }
 
     public function test_guests_cannot_access_admin(): void
@@ -213,5 +220,290 @@ class AdminTest extends TestCase
         $this->get('/sitemap.xml')->assertOk();
         $robots = $this->get('/robots.txt')->assertOk()->getContent();
         $this->assertStringContainsString('Disallow: /', $robots); // staging default
+    }
+
+    public function test_owner_can_upload_and_manage_product_images(): void
+    {
+        Storage::fake('public');
+        $owner = $this->makeUser('owner');
+        $product = Product::create(['sku' => 'IMG-TEST-1', 'title' => 'Image Test Product',
+            'status' => 'published', 'base_price' => 100, 'stock_quantity' => 5, 'low_stock_threshold' => 5, 'published_at' => now()]);
+
+        $response = $this->actingAs($owner)->post('/admin/products/'.$product->id.'/images', [
+            'images' => [UploadedFile::fake()->image('tiffin.jpg'),
+                UploadedFile::fake()->image('tiffin-2.jpg')],
+            'alt_text' => 'Steel tiffin',
+        ]);
+        $response->assertRedirect();
+        $this->assertDatabaseCount('product_images', 2); // 2 new images, no demo images remain
+        $images = $product->images()->get();
+        $first = $images->first();
+        $this->assertTrue((bool) $first->is_primary); // first upload on imageless product is primary
+        $this->assertSame('Steel tiffin', $first->alt_text);
+
+        // Set the second image as primary, then delete it — primary falls back
+        $second = $images->last();
+        $this->actingAs($owner)->patch('/admin/products/'.$product->id.'/images/'.$second->id.'/primary')->assertRedirect();
+        $this->assertTrue((bool) $second->fresh()->is_primary);
+        $this->assertFalse((bool) $first->fresh()->is_primary);
+
+        $this->actingAs($owner)->delete('/admin/products/'.$product->id.'/images/'.$second->id)->assertRedirect();
+        $this->assertDatabaseMissing('product_images', ['id' => $second->id]);
+        $this->assertTrue((bool) $first->fresh()->is_primary); // fallback to remaining image
+    }
+
+    public function test_image_upload_rejects_non_images_and_cross_product_access(): void
+    {
+        Storage::fake('public');
+        $owner = $this->makeUser('owner');
+        $product = Product::factory()->create(['status' => 'published']);
+        ProductImage::create(['product_id' => $product->id, 'path' => 'https://example.com/victim.jpg',
+            'alt_text' => 'victim', 'sort_order' => 0, 'is_primary' => true]);
+        $other = Product::factory()->create(['status' => 'published']);
+
+        // Non-image file rejected
+        $this->actingAs($owner)->post('/admin/products/'.$product->id.'/images', [
+            'images' => [UploadedFile::fake()->create('evil.php', 10)],
+        ])->assertSessionHasErrors('images.0');
+
+        // Image belonging to another product → 404, not deleted
+        $victim = $product->images()->firstOrFail();
+        $this->actingAs($owner)
+            ->delete('/admin/products/'.$other->id.'/images/'.$victim->id)
+            ->assertNotFound();
+        $this->assertDatabaseHas('product_images', ['id' => $victim->id]);
+    }
+
+    public function test_order_manager_cannot_manage_product_images(): void
+    {
+        $staff = $this->makeUser('order_manager');
+        $product = Product::factory()->create(['status' => 'published']);
+        $image = ProductImage::create(['product_id' => $product->id, 'path' => 'https://example.com/i.jpg',
+            'alt_text' => 'x', 'sort_order' => 0, 'is_primary' => true]);
+
+        $this->actingAs($staff)->post('/admin/products/'.$product->id.'/images', ['images' => ['x']])->assertForbidden();
+        $this->actingAs($staff)->delete('/admin/products/'.$product->id.'/images/'.$image->id)->assertForbidden();
+        $this->actingAs($staff)->patch('/admin/products/'.$product->id.'/images/'.$image->id.'/primary')->assertForbidden();
+    }
+
+    public function test_owner_can_create_staff_account(): void
+    {
+        $owner = $this->makeUser('owner');
+
+        $this->actingAs($owner)->post('/admin/users', [
+            'name' => 'Rahim Uddin',
+            'email' => 'rahim@example.com',
+            'password' => 'strong-password-1',
+            'password_confirmation' => 'strong-password-1',
+            'role' => 'order_manager',
+            'phone' => '01711111111',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('users', ['email' => 'rahim@example.com', 'role' => 'order_manager', 'is_active' => true]);
+
+        // Password policy: minimum 10 characters enforced server-side
+        $this->actingAs($owner)->post('/admin/users', [
+            'name' => 'Short Pass',
+            'email' => 'short@example.com',
+            'password' => 'short1',
+            'password_confirmation' => 'short1',
+            'role' => 'order_manager',
+        ])->assertSessionHasErrors('password');
+        $this->assertDatabaseMissing('users', ['email' => 'short@example.com']);
+    }
+
+    public function test_owner_can_delete_order_with_items_and_history(): void
+    {
+        $owner = $this->makeUser('owner');
+        $order = $this->placeOrder();
+        $itemId = $order->items()->firstOrFail()->id;
+
+        $this->actingAs($owner)->delete('/admin/orders/'.$order->id)->assertRedirect('/admin/orders');
+
+        $this->assertDatabaseMissing('orders', ['id' => $order->id]);
+        $this->assertDatabaseMissing('order_items', ['id' => $itemId]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'order.delete', 'auditable_id' => $order->id]);
+    }
+
+    public function test_deleting_shipped_order_restores_inventory(): void
+    {
+        $owner = $this->makeUser('owner');
+        $order = $this->placeOrder();
+        $productId = $order->items->first()->product_id;
+        $qty = (int) $order->items->first()->quantity;
+        $stockBefore = Product::findOrFail($productId)->stock_quantity;
+
+        // pending → confirmed → shipped (deducts stock)
+        $this->actingAs($owner)->patch('/admin/orders/'.$order->id.'/status', ['status' => 'confirmed'])->assertRedirect();
+        $this->actingAs($owner)->patch('/admin/orders/'.$order->id.'/status', ['status' => 'shipped'])->assertRedirect();
+        $this->assertEquals($stockBefore - $qty, Product::findOrFail($productId)->stock_quantity);
+
+        $this->actingAs($owner)->delete('/admin/orders/'.$order->id)->assertRedirect('/admin/orders');
+
+        $this->assertDatabaseMissing('orders', ['id' => $order->id]);
+        $this->assertEquals($stockBefore, Product::findOrFail($productId)->stock_quantity);
+        $this->assertDatabaseHas('stock_movements', ['product_id' => $productId, 'change_qty' => $qty, 'reason' => 'cancelled']);
+    }
+
+    public function test_order_manager_cannot_delete_orders(): void
+    {
+        $staff = $this->makeUser('order_manager');
+        $order = $this->placeOrder();
+
+        $this->actingAs($staff)->delete('/admin/orders/'.$order->id)->assertForbidden();
+        $this->assertDatabaseHas('orders', ['id' => $order->id]);
+    }
+
+    public function test_guests_cannot_delete_orders(): void
+    {
+        $order = $this->placeOrder();
+
+        $this->delete('/admin/orders/'.$order->id)->assertRedirect('/admin/login');
+        $this->assertDatabaseHas('orders', ['id' => $order->id]);
+    }
+
+    public function test_orders_index_offers_quick_status_dropdown_with_valid_transitions_only(): void
+    {
+        $staff = $this->makeUser('order_manager');
+        $order = $this->placeOrder(); // placed as pending
+
+        $response = $this->actingAs($staff)->get('/admin/orders?status=pending');
+        $response->assertOk();
+        // Pending orders offer only valid next steps in the inline dropdown…
+        $response->assertSee('value="confirmed"', false);
+        $response->assertSee('value="on_hold"', false);
+        $response->assertSee('value="cancelled"', false);
+        // …and the row's own dropdown never offers an invalid jump like pending → delivered.
+        $this->assertMatchesRegularExpression('/<select id="status-'.$order->id.'".*?<\/select>/s', $response->getContent());
+        preg_match('/<select id="status-'.$order->id.'".*?<\/select>/s', $response->getContent(), $m);
+        $this->assertStringNotContainsString('value="delivered"', $m[0]);
+
+        // The dropdown posts to the same guarded endpoint.
+        $response->assertSee(route('admin.orders.status', $order), false);
+    }
+
+    public function test_bulk_status_updates_valid_and_skips_invalid_transitions(): void
+    {
+        $owner = $this->makeUser('owner');
+        $first = $this->placeOrder();
+        $second = $this->placeOrder();
+
+        // Both pending → confirmed applies cleanly.
+        $this->actingAs($owner)->patch('/admin/orders/bulk/status', [
+            'order_ids' => [$first->id, $second->id],
+            'status' => 'confirmed',
+        ])->assertRedirect();
+        $this->assertEquals('confirmed', $first->fresh()->status);
+        $this->assertEquals('confirmed', $second->fresh()->status);
+        $this->assertDatabaseHas('order_status_history', ['order_id' => $first->id, 'to_status' => 'confirmed']);
+        $this->assertDatabaseHas('order_status_history', ['order_id' => $second->id, 'to_status' => 'confirmed']);
+
+        // confirmed → delivered skips the chain: both skipped, nothing changes.
+        $response = $this->actingAs($owner)->patch('/admin/orders/bulk/status', [
+            'order_ids' => [$first->id, $second->id],
+            'status' => 'delivered',
+        ]);
+        $response->assertRedirect();
+        $this->assertEquals('confirmed', $first->fresh()->status);
+        $this->assertEquals('confirmed', $second->fresh()->status);
+        $this->assertStringContainsString('2 skipped', (string) session('success'));
+    }
+
+    public function test_bulk_status_requires_selection_and_valid_ids(): void
+    {
+        $owner = $this->makeUser('owner');
+
+        $this->actingAs($owner)->patch('/admin/orders/bulk/status', ['status' => 'confirmed'])
+            ->assertSessionHasErrors('order_ids');
+
+        $this->actingAs($owner)->patch('/admin/orders/bulk/status', ['order_ids' => [999999], 'status' => 'confirmed'])
+            ->assertSessionHasErrors('order_ids.0');
+    }
+
+    public function test_bulk_delete_removes_orders_and_restores_shipped_inventory(): void
+    {
+        $owner = $this->makeUser('owner');
+        $shipped = $this->placeOrder();
+        $pending = $this->placeOrder();
+        $productId = $shipped->items->first()->product_id;
+        $qty = (int) $shipped->items->first()->quantity;
+        $stockBefore = Product::findOrFail($productId)->stock_quantity;
+
+        $this->actingAs($owner)->patch('/admin/orders/'.$shipped->id.'/status', ['status' => 'confirmed'])->assertRedirect();
+        $this->actingAs($owner)->patch('/admin/orders/'.$shipped->id.'/status', ['status' => 'shipped'])->assertRedirect();
+        $this->assertEquals($stockBefore - $qty, Product::findOrFail($productId)->stock_quantity);
+
+        $this->actingAs($owner)->delete('/admin/orders/bulk', ['order_ids' => [$shipped->id, $pending->id]])
+            ->assertRedirect('/admin/orders');
+
+        $this->assertDatabaseMissing('orders', ['id' => $shipped->id]);
+        $this->assertDatabaseMissing('orders', ['id' => $pending->id]);
+        $this->assertEquals($stockBefore, Product::findOrFail($productId)->stock_quantity);
+        $this->assertDatabaseHas('stock_movements', ['product_id' => $productId, 'change_qty' => $qty, 'reason' => 'cancelled']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'order.delete', 'auditable_id' => $shipped->id]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'order.delete', 'auditable_id' => $pending->id]);
+    }
+
+    public function test_owner_can_adjust_stock_without_variant_id(): void
+    {
+        // Regression: the form omits variant_id entirely, so validated() has no
+        // such key — the controller must not read it directly.
+        $owner = $this->makeUser('owner');
+        $product = Product::factory()->create(['stock_quantity' => 10, 'status' => 'published']);
+
+        $this->actingAs($owner)->post('/admin/inventory/adjust', [
+            'product_id' => $product->id,
+            'change_qty' => 7,
+            'reason' => 'purchase',
+        ])->assertRedirect();
+
+        $this->assertEquals(17, $product->fresh()->stock_quantity);
+        $this->assertDatabaseHas('stock_movements', [
+            'product_id' => $product->id,
+            'product_variant_id' => null,
+            'change_qty' => 7,
+            'balance_after' => 17,
+            'reason' => 'purchase',
+        ]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'inventory.adjust', 'auditable_id' => $product->id]);
+    }
+
+    public function test_owner_can_adjust_variant_stock_and_cannot_go_negative(): void
+    {
+        $owner = $this->makeUser('owner');
+        $product = Product::factory()->create(['stock_quantity' => 3, 'status' => 'published']);
+        $variant = $product->variants()->create([
+            'name' => 'Large', 'sku' => 'SKU-VAR-1', 'stock_quantity' => 5, 'is_active' => true,
+        ]);
+
+        $this->actingAs($owner)->post('/admin/inventory/adjust', [
+            'product_id' => $product->id,
+            'variant_id' => $variant->id,
+            'change_qty' => -2,
+            'reason' => 'adjustment',
+        ])->assertRedirect();
+        $this->assertEquals(3, $variant->fresh()->stock_quantity);
+        $this->assertEquals(3, $product->fresh()->stock_quantity);
+
+        // Adjusting below zero is refused inside the transaction.
+        $this->actingAs($owner)->post('/admin/inventory/adjust', [
+            'product_id' => $product->id,
+            'variant_id' => $variant->id,
+            'change_qty' => -10,
+            'reason' => 'adjustment',
+        ]);
+        $this->assertEquals(3, $variant->fresh()->stock_quantity);
+    }
+
+    public function test_bulk_delete_forbidden_for_order_manager_and_guests(): void
+    {
+        $order = $this->placeOrder();
+
+        $this->delete('/admin/orders/bulk', ['order_ids' => [$order->id]])->assertRedirect('/admin/login');
+        $this->assertDatabaseHas('orders', ['id' => $order->id]);
+
+        $staff = $this->makeUser('order_manager');
+        $this->actingAs($staff)->delete('/admin/orders/bulk', ['order_ids' => [$order->id]])->assertForbidden();
+        $this->assertDatabaseHas('orders', ['id' => $order->id]);
     }
 }

@@ -1,0 +1,28 @@
+.order-btn, .order-btn-sm {
+    background: linear-gradient(to bottom, #14213d, #0a1628);
+    color: #fff;
+    font-weight: 700;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 10px rgba(15, 31, 61, 0.25);
+    transition: all 0.2s ease;
+}
+.order-btn:hover, .order-btn-sm:hover {
+    background: linear-gradient(to bottom, #0a1628, #0a1628);
+    box-shadow: 0 8px 18px rgba(15, 31, 61, 0.35);
+    transform: translateY(-1px);
+}
+.order-btn-sm {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+}
+.order-btn:disabled, .order-btn-sm:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+.order-btn.sold-out, .order-btn-sm.sold-out {
+    background: #c9ccd0;
+    color: #5a5d57;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}

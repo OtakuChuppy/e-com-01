@@ -6,11 +6,21 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class PasswordResetController extends Controller
 {
+    // Ei limiter-ti forgot-password endpoint-ti brute-force ebong email-flooding
+    // theke rokkha kore. Ekti IP theke 5 minute-e shorbochcho 5 bar reset link
+    // chawa jay. Account enumeration rodh korte response-ti shob-somoy ek rokom thake.
+    private const RESET_RATE_LIMIT_KEY_PREFIX = 'password.reset:';
+
+    private const RESET_MAX_ATTEMPTS = 5;
+
+    private const RESET_DECAY_SECONDS = 300;
+
     public function showLinkForm(): View
     {
         return view('admin.auth.forgot-password');
@@ -19,6 +29,16 @@ class PasswordResetController extends Controller
     public function sendLink(Request $request): RedirectResponse
     {
         $request->validate(['email' => ['required', 'email', 'max:190']]);
+
+        $key = self::RESET_RATE_LIMIT_KEY_PREFIX.strtolower($request->input('email')).'|'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($key, self::RESET_MAX_ATTEMPTS)) {
+            $seconds = RateLimiter::availableIn($key);
+
+            return back()->with('error', "Reset link request rate-limited. Please try again in {$seconds} seconds.");
+        }
+
+        RateLimiter::hit($key, self::RESET_DECAY_SECONDS);
 
         // Always respond identically so attackers cannot enumerate accounts.
         $status = Password::sendResetLink($request->only('email'));

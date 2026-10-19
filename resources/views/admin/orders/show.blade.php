@@ -45,6 +45,15 @@
 <button class="w-full bg-forest text-white text-sm font-medium px-4 py-2.5 rounded">Update status</button>
 @endif
 </form>
+@if (auth()->user()?->canDeleteOrders())
+<hr class="my-5 border-ink/10">
+<h2 class="font-medium text-red-700">Delete order</h2>
+<p class="text-xs text-muted mt-1">Permanent — removes the order, its items and history. If inventory was already deducted (shipped), it is restored first.</p>
+<form action="{{ route('admin.orders.destroy', $order) }}" method="POST" class="mt-3" onsubmit="return confirm('Delete order {{ $order->reference }} permanently? This cannot be undone.');">
+@csrf @method('DELETE')
+<button class="w-full border border-red-300 text-red-700 bg-white hover:bg-red-50 text-sm font-medium px-4 py-2.5 rounded">Delete order</button>
+</form>
+@endif
 </aside>
 </div>
 @endsection

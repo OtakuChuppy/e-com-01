@@ -169,7 +169,10 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // Production-e session cookie shudhumatro HTTPS-e pathano hoy, jar madhyome
+    // session hijacking-er jhuki komay. Local/dev-e false thakle testing shohoj hoy.
+    // Production deploy-e SESSION_SECURE_COOKIE=true set korun.
+    'secure' => (bool) env('SESSION_SECURE_COOKIE', env('APP_ENV', 'production') === 'production'),
 
     /*
     |--------------------------------------------------------------------------

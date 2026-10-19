@@ -18,6 +18,10 @@ use Illuminate\View\View;
 
 class CheckoutController extends Controller
 {
+    // COD (cash on delivery) checkout. Order create korar age stock check kora hoy,
+    // kintu stock decrement hoy na — shudhumatro staff order-ti 'shipped' korle stock kome.
+    // Idempotency key byabohar kore duplicate order thake na.
+
     public function index(Request $request): View|RedirectResponse
     {
         $cart = app(CartController::class)->cart($request);
@@ -25,7 +29,7 @@ class CheckoutController extends Controller
         $totals = app(CartController::class)->totals($cart);
 
         if ($cart->items->isEmpty()) {
-            return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
+            return redirect()->route('cart.index')->with('error', 'আপনার কার্ট খালি।');
         }
 
         return view('checkout.index', [
@@ -47,6 +51,8 @@ class CheckoutController extends Controller
             'idempotency_key' => ['required', 'string', 'max:64'],
         ]);
 
+        // Idempotency: same key diye duplicate order thake na. 10 minute cache-e
+        // reference save kora hoy, ta pore success page-e redirect kore.
         $cacheKey = 'order:'.$validated['idempotency_key'];
         if ($existing = cache()->get($cacheKey)) {
             return redirect()->route('checkout.success', ['reference' => $existing]);
@@ -55,7 +61,7 @@ class CheckoutController extends Controller
         $cart = app(CartController::class)->cart($request);
         $cart->load(['items.product', 'items.variant']);
         if ($cart->items->isEmpty()) {
-            return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
+            return redirect()->route('cart.index')->with('error', 'আপনার কার্ট খালি।');
         }
 
         try {
@@ -71,6 +77,19 @@ class CheckoutController extends Controller
         return redirect()->route('checkout.success', ['reference' => $order->reference, 'token' => $order->lookup_token]);
     }
 
+    /**
+     * Order place korte helper.
+     *
+     * Banglish: cart-er protiti item-er jonno product ebong variant lock kore stock
+     * check kora hoy. Stock shudhumatro reserve kora hoy, decrement nai — staff
+     * order-ti 'shipped' korar por stock kome. Customer create hoy phone number
+     * diye, order reference unique kore generate kora hoy ebong order items
+     * save kora hoy. Cart-ti clear kora hoy order create howar por.
+     *
+     * TODO (planned, not done yet): real payment gateway (bKash, Nagad, SSLCOMMERZ).
+     * Ekhon shudhumatro COD supported. Agami feature hishebe online payment
+     * integration porikolpona ache.
+     */
     private function placeOrder(array $v, Cart $cart, Request $request): Order
     {
         $subtotal = 0;
@@ -112,6 +131,8 @@ class CheckoutController extends Controller
     public function success(string $reference, Request $request): View
     {
         $order = Order::with('items')->where('reference', $reference)->firstOrFail();
+        // Order details dekhonor jonno exact lookup token ba session require kora hoy,
+        // jar madhyome order ID guessing attack rodh hoye thake.
         if ($request->get('token') !== $order->lookup_token && session('order_'.$order->reference) !== true) {
             abort(403, 'Order verification required.');
         }

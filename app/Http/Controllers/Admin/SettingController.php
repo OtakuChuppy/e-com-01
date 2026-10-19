@@ -11,6 +11,9 @@ use Illuminate\View\View;
 
 class SettingController extends Controller
 {
+    // Admin delivery charge settings (inside/outside Dhaka). Owner ebong admin
+    // edit korte parbe. Protiti update audit log kora hoyeche.
+
     public function index(): View
     {
         $settings = Setting::orderBy('group')->orderBy('key')->get();
@@ -23,23 +26,39 @@ class SettingController extends Controller
         $validated = $request->validate([
             'delivery_inside_dhaka' => ['required', 'numeric', 'min:0', 'max:10000'],
             'delivery_outside_dhaka' => ['required', 'numeric', 'min:0', 'max:10000'],
-            'meta_pixel_id' => ['nullable', 'string', 'max:30', 'regex:/^[0-9]{5,20}$/'],
-            'gtm_container_id' => ['nullable', 'string', 'max:20', 'regex:/^GTM-[A-Z0-9]{4,12}$/'],
-            'ga4_measurement_id' => ['nullable', 'string', 'max:20', 'regex:/^G-[A-Z0-9]{4,15}$/'],
-            'robots_mode' => ['nullable', 'in:live,staging'],
+
+            // Site identity — editable from the admin panel.
+            'site_name' => ['nullable', 'string', 'max:150'],
+            'site_tagline' => ['nullable', 'string', 'max:255'],
+            'site_url' => ['nullable', 'url', 'max:255'],
+            'logo_url' => ['nullable', 'url', 'max:255'],
+            'favicon_url' => ['nullable', 'url', 'max:255'],
+            'contact_email' => ['nullable', 'email', 'max:255'],
+            'contact_phone' => ['nullable', 'string', 'max:30'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'footer_text' => ['nullable', 'string', 'max:255'],
+            'facebook_url' => ['nullable', 'url', 'max:255'],
+            'instagram_url' => ['nullable', 'url', 'max:255'],
         ]);
 
-        foreach (['delivery_inside_dhaka', 'delivery_outside_dhaka'] as $k) {
+        $shipping = ['delivery_inside_dhaka', 'delivery_outside_dhaka'];
+        $identity = [
+            'site_name', 'site_tagline', 'site_url', 'logo_url', 'favicon_url',
+            'contact_email', 'contact_phone', 'address', 'footer_text',
+            'facebook_url', 'instagram_url',
+        ];
+
+        foreach ($shipping as $k) {
             Setting::updateOrCreate(['key' => $k], ['value' => (string) $validated[$k], 'group' => 'shipping']);
         }
-        foreach (['meta_pixel_id', 'gtm_container_id', 'ga4_measurement_id', 'robots_mode'] as $k) {
-            Setting::updateOrCreate(['key' => $k], ['value' => $validated[$k] ?? null, 'group' => $k === 'robots_mode' ? 'seo' : 'tracking']);
+        foreach ($identity as $k) {
+            Setting::updateOrCreate(['key' => $k], ['value' => $validated[$k] ?? null, 'group' => 'identity']);
         }
 
         AuditLog::create(['user_id' => $request->user()->id, 'action' => 'settings.update',
             'auditable_type' => Setting::class, 'auditable_id' => null,
             'metadata' => ['keys' => array_keys($validated)], 'ip_address' => $request->ip()]);
 
-        return back()->with('success', 'Settings saved. Tracking IDs are validated, never raw scripts.');
+        return back()->with('success', 'Settings saved.');
     }
 }

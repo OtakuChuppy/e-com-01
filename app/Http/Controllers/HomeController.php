@@ -8,14 +8,16 @@ use Illuminate\View\View;
 
 class HomeController extends Controller
 {
+    // Storefront homepage: featured ebong latest product, category showcase.
+
     public function index(): View
     {
         $categories = Category::active()->orderBy('sort_order')->take(6)->get();
-        $featured = Product::published()->with(['category', 'images'])
+        $featured = Product::published()->with(['category', 'images', 'variants'])
             ->where('is_featured', true)
             ->orderByDesc('published_at')
             ->take(8)->get();
-        $latest = Product::published()->with(['category', 'images'])
+        $latest = Product::published()->with(['category', 'images', 'variants'])
             ->orderByDesc('published_at')
             ->take(8)->get();
 

@@ -123,4 +123,10 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    // Reverse proxy IPs we trust for X-Forwarded-For. Set TRUSTED_PROXIES in .env
+    // (comma-separated, e.g. "10.0.0.0/8,172.16.0.0/12"). Leave empty in dev so
+    // $request->ip() returns the direct client IP. Production behind a load balancer
+    // should list the balancer CIDRs so IP-based rate limiting stays accurate.
+    'trusted_proxies' => env('TRUSTED_PROXIES', ''),
+
 ];

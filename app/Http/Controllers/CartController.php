@@ -27,9 +27,19 @@ class CartController extends Controller
             'product_id' => ['required', 'exists:products,id'],
             'variant_id' => ['nullable', 'exists:product_variants,id'],
             'quantity' => ['required', 'integer', 'min:1', 'max:20'],
+            'buy_now' => ['nullable', 'boolean'],
         ]);
 
         $product = Product::published()->findOrFail($validated['product_id']);
+
+        // Products with options must go through the detail page so the
+        // customer picks a variant (quick buttons on cards can't guess it).
+        $hasVariants = ProductVariant::where('product_id', $product->id)->where('is_active', true)->exists();
+        if ($hasVariants && empty($validated['variant_id'])) {
+            return redirect()->route('products.show', $product->slug)
+                ->with('error', 'আগে একটি অপশন বাছাই করুন, তারপর এগিয়ে যান।');
+        }
+
         $variant = null;
         if (! empty($validated['variant_id'])) {
             $variant = ProductVariant::where('product_id', $product->id)->where('is_active', true)->findOrFail($validated['variant_id']);
@@ -37,7 +47,7 @@ class CartController extends Controller
 
         $available = $variant?->stock_quantity ?? $product->stock_quantity;
         if ($available < $validated['quantity']) {
-            return back()->with('error', 'Sorry, only '.$available.' in stock for this item.');
+            return back()->with('error', 'দুঃখিত, এই পণ্যটির মাত্র '.$available.'টি স্টক আছে।');
         }
 
         $cart = $this->cart($request, true);
@@ -50,9 +60,18 @@ class CartController extends Controller
         $item->quantity = min(($item->exists ? $item->quantity : 0) + $validated['quantity'], min(20, $available));
         $item->save();
 
-        return redirect()->route('cart.index')->with('success', 'Added to cart.')->withCookie(
-            cookie('cart_token', $cart->session_token, 60 * 24 * 30, '/', null, false, true, false, 'Lax')
-        );
+        // Cart cookie: secure flag production-e true hoy (HTTPS-only), httpOnly holo
+        // true jar madhyome JavaScript theke cookie-ti chawa jay na (XSS theke rokkha).
+        // SameSite=Lax cross-site request-theke CSRF jhuki komay.
+        $secure = app()->environment('production');
+        $cookie = cookie('cart_token', $cart->session_token, 60 * 24 * 30, '/', null, $secure, true, false, 'Lax');
+
+        // ⚡ Order Now → skip the cart page, land straight on checkout.
+        if ($request->boolean('buy_now')) {
+            return redirect()->route('checkout.index')->withCookie($cookie);
+        }
+
+        return redirect()->route('cart.index')->with('success', 'কার্টে যোগ হয়েছে।')->withCookie($cookie);
     }
 
     public function update(Request $request, CartItem $item): RedirectResponse
@@ -62,7 +81,7 @@ class CartController extends Controller
         $available = $item->variant?->stock_quantity ?? $item->product->stock_quantity;
         $item->update(['quantity' => min($validated['quantity'], max(1, (int) $available))]);
 
-        return back()->with('success', 'Cart updated.');
+        return back()->with('success', 'কার্ট আপডেট হয়েছে।');
     }
 
     public function destroy(Request $request, CartItem $item): RedirectResponse
@@ -70,7 +89,7 @@ class CartController extends Controller
         $this->authorizeItem($request, $item);
         $item->delete();
 
-        return back()->with('success', 'Item removed.');
+        return back()->with('success', 'আইটেম সরানো হয়েছে।');
     }
 
     public function cart(Request $request, bool $create = false): Cart
@@ -83,7 +102,8 @@ class CartController extends Controller
             $token = Str::random(48);
             $cart = Cart::create(['session_token' => $token, 'user_id' => $request->user()?->id]);
             $request->session()->put('cart_token', $token);
-            cookie()->queue('cart_token', $token, 60 * 24 * 30, '/', null, false, true, false, 'Lax');
+            $secure = app()->environment('production');
+            cookie()->queue('cart_token', $token, 60 * 24 * 30, '/', null, $secure, true, false, 'Lax');
             $request->cookies->set('cart_token', $token);
         }
 

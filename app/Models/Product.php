@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,6 +11,13 @@ use Illuminate\Support\Str;
 
 class Product extends Model
 {
+    // E-commerce product model. 'published' scope diye shudhumatro publish kora
+    // product dekhano hoy. Variants, images, category relation thake.
+    // getInStock attribute stock availability check kore.
+
+    /** @use HasFactory<Product> */
+    use HasFactory;
+
     protected $fillable = ['category_id', 'sku', 'slug', 'title', 'description', 'short_description', 'brand', 'status', 'base_price', 'compare_at_price', 'cost_price', 'stock_quantity', 'low_stock_threshold', 'weight_grams', 'is_featured', 'is_demo', 'meta_title', 'meta_description', 'canonical_url', 'published_at'];
 
     protected function casts(): array
@@ -74,6 +82,12 @@ class Product extends Model
 
     public function getInStockAttribute(): bool
     {
+        if ($this->relationLoaded('variants')) {
+            $active = $this->variants->where('is_active', true);
+
+            return $active->isNotEmpty() ? $active->contains(fn ($v): bool => $v->stock_quantity > 0) : $this->stock_quantity > 0;
+        }
+
         if ($this->variants()->exists()) {
             return $this->variants()->where('is_active', true)->where('stock_quantity', '>', 0)->exists();
         }

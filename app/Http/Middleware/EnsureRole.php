@@ -9,8 +9,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureRole
 {
+    // Admin route-gulor jonno role-based access middleware. 'any-staff' mane
+    // owner|admin|order_manager|marketer. Nirdishto role dia gele shudhumatro shegulo
+    // access pabe. Inactive user logout hoye login page-e pathano hoyeche.
+
     /**
-     * @param  string  ...$roles  Allowed roles, or 'any-staff' for owner|admin|order_manager.
+     * @param  string  ...$roles  Allowed roles, or 'any-staff' for owner|admin|order_manager|marketer.
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
@@ -32,7 +36,7 @@ class EnsureRole
         }
 
         $allowed = $roles === ['any-staff']
-            ? ['owner', 'admin', 'order_manager']
+            ? ['owner', 'admin', 'order_manager', 'marketer']
             : $roles;
 
         if (! in_array($user->role, $allowed, true)) {

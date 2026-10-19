@@ -12,8 +12,13 @@ use Illuminate\View\View;
 
 class LoginController extends Controller
 {
+    // Staff admin panel-er login. Rate-limit kora hoyeche (5 attempt, 1 minute)
+    // jar madhyome brute-force attack rodh hoye thake. Session regenerate kora
+    // hoy fixation attack theke rokkha-te.
+
     public function show(Request $request): View|RedirectResponse
     {
+        // Login kora thaka user-ke dashboard-e pathano hoyeche.
         if ($request->user()?->is_active) {
             return redirect()->route('admin.dashboard');
         }
@@ -29,6 +34,7 @@ class LoginController extends Controller
             'remember' => ['nullable', 'boolean'],
         ]);
 
+        // Rate limiter key: email + IP. 5 attempt-e limit.
         $key = 'login:'.strtolower($validated['email']).'|'.$request->ip();
 
         if (RateLimiter::tooManyAttempts($key, 5)) {
@@ -40,6 +46,7 @@ class LoginController extends Controller
 
         $remember = (bool) ($validated['remember'] ?? false);
 
+        // Chesta korun credential match kore ki na; is_active true thaka user shudhumatro login korte parbe.
         if (! Auth::attempt(['email' => $validated['email'], 'password' => $validated['password'], 'is_active' => true], $remember)) {
             RateLimiter::hit($key, 120);
 
@@ -49,10 +56,11 @@ class LoginController extends Controller
         }
 
         RateLimiter::clear($key);
+        // Session fixation rodh korte session ID notun kore generate kora hoyeche.
         $request->session()->regenerate();
 
         $user = $request->user();
-        if (! in_array($user->role, ['owner', 'admin', 'order_manager'], true)) {
+        if (! in_array($user->role, ['owner', 'admin', 'order_manager', 'marketer'], true)) {
             // @phpstan-ignore-line Laravel facade magic method
             Auth::logout();
             $request->session()->invalidate();
@@ -68,6 +76,8 @@ class LoginController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
+        // Logout korar sathe session invalidate ebong regenerate kora hoyeche
+        // jar madhyome session fixation attack rodh hoye thake.
         // @phpstan-ignore-line Laravel facade magic method
         Auth::logout();
         $request->session()->invalidate();

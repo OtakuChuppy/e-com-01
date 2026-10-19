@@ -3,7 +3,7 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>Forgot password — {{ config('shop.name') }}</title><script src="https://cdn.tailwindcss.com"></script>
 <script>
     tailwind.config = { theme: { extend: {
-        colors: { ivory: '#FBFAF7', forest: '#344B3F', forestdeep: '#283B31', clay: '#A96E52', ink: '#242821', muted: '#77796F', linen: '#F2EFE8', moss: '#E7ECE5' },
+        colors: { ivory: '#FFFFFF', forest: '#14213D', forestdeep: '#0a1628', clay: '#2563EB', ink: '#101828', muted: '#667085', linen: '#EEF2F7', moss: '#E3EAF6' },
         fontFamily: { sans: ['Inter','system-ui','sans-serif'], display: ['Fraunces','Georgia','serif'] }
     } } };
 </script></head>

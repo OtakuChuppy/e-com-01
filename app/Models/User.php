@@ -14,7 +14,11 @@ use Illuminate\Notifications\Notifiable;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    public const ROLES = ['owner', 'admin', 'order_manager'];
+    // Staff user model with role-based access control (RBAC). Roles: owner, admin,
+    // order_manager, marketer. canManage* methods permission check kore.
+    // is_active false thaka user login korte pare na.
+
+    public const ROLES = ['owner', 'admin', 'order_manager', 'marketer'];
 
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
@@ -46,6 +50,22 @@ class User extends Authenticatable
     public function canManageOrders(): bool
     {
         return in_array($this->role, ['owner', 'admin', 'order_manager'], true);
+    }
+
+    /**
+     * Deleting an order is irreversible — owners and admins only (mirrors canManageProducts).
+     */
+    public function canDeleteOrders(): bool
+    {
+        return in_array($this->role, ['owner', 'admin'], true);
+    }
+
+    /**
+     * Marketing (tracking IDs, SEO/robots) — owners and marketers only, never plain admins.
+     */
+    public function canManageMarketing(): bool
+    {
+        return in_array($this->role, ['owner', 'marketer'], true);
     }
 
     public function canManageInventory(): bool

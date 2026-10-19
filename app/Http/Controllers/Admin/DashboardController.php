@@ -8,6 +8,8 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    // Admin dashboard: order counts by status, recent orders, 7-day ebong 30-day sales.
+
     public function index(): View
     {
         $counts = [

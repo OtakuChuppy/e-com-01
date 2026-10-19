@@ -12,6 +12,9 @@ use Illuminate\View\View;
 
 class UserController extends Controller
 {
+    // Admin user management: create, update staff accounts. Shudhumatro owner
+    // user create/update korte parbe. Last owner deactivate/demote rodh kora hoyeche.
+
     public function index(): View
     {
         $users = User::orderBy('name')->paginate(15);
